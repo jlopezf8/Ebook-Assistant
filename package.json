@@ -1,0 +1,11 @@
+{
+  "name": "ebook-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "devDependencies": {
+    "gh-pages": "^4.0.0"
+  },
+  "scripts": {
+    "deploy": "gh-pages -d ."
+  }
+}

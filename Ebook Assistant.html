@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Quest AI: Generador de Cuestionarios</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Libraries for EPUB and Mind Map -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-lib"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.17"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7fafc;
+        }
+        .main-container {
+            max-width: 1280px;
+            margin: auto;
+        }
+        .option-btn:hover:not(:disabled) {
+            border-color: #4299e1;
+            background-color: #ebf8ff;
+        }
+        .option-btn:disabled { cursor: not-allowed; }
+        .correct {
+            background-color: #c6f6d5 !important;
+            border-color: #68d391 !important;
+            color: #2f855a;
+        }
+        .incorrect {
+            background-color: #fed7d7 !important;
+            border-color: #fc8181 !important;
+            color: #c53030;
+        }
+        #explanation { border-left: 4px solid #a0aec0; }
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .fade-in {
+            animation: fadeInAnimation 0.5s ease-in-out;
+        }
+        @keyframes fadeInAnimation {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        #ai-content-display ul {
+            list-style-type: disc;
+            padding-left: 20px;
+        }
+        #ai-content-display li {
+            margin-bottom: 0.5rem;
+        }
+        #mindmap-container {
+            width: 100%;
+            height: 80vh;
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            overflow: hidden;
+        }
+        svg.markmap {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div id="app-container" class="main-container p-4 sm:p-8 min-h-screen flex flex-col justify-center">
+
+        <!-- API Key Screen -->
+        <div id="api-key-screen" class="max-w-lg mx-auto w-full text-center fade-in">
+            <h1 class="text-3xl sm:text-4xl font-bold mb-2 text-gray-700">Book Quest AI</h1>
+            <p class="text-lg mb-6 text-gray-500">Genera cuestionarios de cualquier libro.</p>
+            <div class="bg-white p-8 rounded-lg shadow-md">
+                <label for="api-key-input" class="block text-lg font-semibold mb-3">Ingresa tu API Key de Google AI Studio</label>
+                <input type="password" id="api-key-input" class="w-full p-3 border border-gray-300 rounded-lg mb-4" placeholder="Pega tu clave de API aquí...">
+                <button id="save-api-key-btn" class="w-full bg-blue-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-600">Guardar y Empezar</button>
+                 <p class="text-xs text-gray-400 mt-4">Tu clave se guarda solo en tu navegador. <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-500 underline">Obtén una clave aquí.</a></p>
+            </div>
+        </div>
+
+        <!-- File Upload Screen -->
+        <div id="file-upload-screen" class="hidden max-w-lg mx-auto w-full text-center fade-in">
+            <h1 class="text-3xl sm:text-4xl font-bold mb-2 text-gray-700">Carga tu Libro</h1>
+            <p class="text-lg mb-8 text-gray-500">Selecciona un archivo en formato .epub para comenzar.</p>
+            <div class="bg-white p-8 rounded-lg shadow-md">
+                <input type="file" id="epub-file-input" accept=".epub" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+            </div>
+        </div>
+        
+        <!-- Loading/Processing Screen -->
+        <div id="loading-screen" class="hidden text-center fade-in">
+            <p id="loading-text" class="text-lg font-semibold mb-4">Procesando...</p>
+            <div class="loader"></div>
+            <p class="text-gray-500">Esto puede tardar unos segundos.</p>
+        </div>
+
+        <!-- Book Hub Screen -->
+        <div id="book-hub-screen" class="hidden max-w-lg mx-auto w-full text-center fade-in">
+            <h2 class="text-3xl font-bold mb-2">Libro Cargado</h2>
+            <p class="text-gray-600 mb-6">¿Cómo quieres explorar el contenido?</p>
+            <div class="bg-white p-8 rounded-lg shadow-md space-y-4">
+                <button id="go-to-chapters-btn" class="w-full bg-blue-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-600 transition-colors">📚 Estudiar por Capítulos</button>
+                <button id="go-to-mindmap-btn" class="w-full bg-indigo-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-600 transition-colors">🗺️ Explorar Mapa Mental</button>
+            </div>
+        </div>
+
+        <!-- Chapter Selection Screen -->
+        <div id="chapter-selection-screen" class="hidden max-w-2xl mx-auto w-full fade-in">
+             <h2 class="text-2xl font-bold mb-4 text-center">Selecciona un Capítulo</h2>
+             <div id="chapter-list" class="bg-white p-4 rounded-lg shadow-md max-h-96 overflow-y-auto"></div>
+             <button id="back-to-book-hub-from-list-btn" class="w-full mt-4 text-center text-gray-500 hover:text-gray-800 font-semibold">&larr; Volver</button>
+        </div>
+
+        <!-- Mind Map Screen -->
+        <div id="mindmap-screen" class="hidden fade-in w-full">
+             <h2 class="text-2xl font-bold mb-2 text-center">Mapa Mental del Libro</h2>
+             <p class="text-center text-gray-500 mb-4">Explora la estructura del libro. Este mapa es solo de visualización.</p>
+             <div id="mindmap-container">
+                <svg id="markmap-svg"></svg>
+             </div>
+             <div class="text-center mt-4">
+                <button id="back-to-book-hub-from-map-btn" class="bg-blue-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-600">&larr; Volver</button>
+             </div>
+        </div>
+
+        <!-- Chapter Hub Screen -->
+        <div id="chapter-hub-screen" class="hidden fade-in w-full">
+            <h2 id="hub-chapter-title" class="text-3xl font-bold mb-6 text-center truncate"></h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Left Column: Controls -->
+                <div class="md:col-span-1">
+                    <div class="bg-white p-6 rounded-lg shadow-md sticky top-8">
+                        <p class="text-lg font-semibold mb-4">Herramientas de IA</p>
+                        <div class="space-y-3">
+                            <button id="generate-summary-btn" class="w-full text-left bg-sky-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-sky-600 transition-colors">✨ Generar Resumen</button>
+                            <button id="generate-concepts-btn" class="w-full text-left bg-purple-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-purple-600 transition-colors">✨ Extraer Conceptos Clave</button>
+                        </div>
+                        <hr class="my-6">
+                        <button id="start-quiz-btn" class="w-full bg-green-500 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-600 transition-colors">Comenzar Cuestionario</button>
+                        <button id="back-to-chapters-btn" class="w-full mt-4 text-center text-gray-500 hover:text-gray-800 font-semibold">&larr; Volver a Capítulos</button>
+                    </div>
+                </div>
+                <!-- Right Column: Content Display -->
+                <div class="md:col-span-2">
+                    <div id="ai-content-display" class="bg-white p-8 rounded-lg shadow-md min-h-[400px] text-gray-700 prose prose-lg">
+                        <p class="text-gray-400 text-center mt-16">Selecciona una herramienta de IA para comenzar a estudiar este tema.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quiz Screen -->
+        <div id="quiz-screen" class="hidden fade-in max-w-4xl mx-auto w-full">
+            <div class="flex justify-between items-center mb-4">
+                 <button id="back-to-hub-from-quiz-btn" class="text-gray-500 hover:text-gray-800 font-semibold">&larr; Volver</button>
+                 <h2 id="quiz-chapter-title" class="text-xl font-bold truncate text-center"></h2>
+                 <p id="progress-text" class="text-sm text-gray-500"></p>
+            </div>
+            <div class="bg-white p-6 sm:p-8 rounded-lg shadow-lg">
+                <p id="question-text" class="text-2xl font-medium mb-8"></p>
+                <div id="options-container"></div>
+                <div id="explanation" class="hidden mt-6 p-4 bg-gray-100 rounded-lg">
+                    <p id="explanation-text" class="text-gray-700"></p>
+                </div>
+                <button id="next-btn" class="hidden w-full sm:w-auto float-right mt-6 bg-blue-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-600">Siguiente</button>
+            </div>
+        </div>
+
+        <!-- Score Screen -->
+        <div id="score-screen" class="hidden text-center fade-in max-w-lg mx-auto w-full">
+             <div class="bg-white p-8 rounded-lg shadow-lg">
+                <h2 class="text-3xl font-bold mb-4">¡Cuestionario completado!</h2>
+                <p id="score-text" class="text-2xl mb-6"></p>
+                <button id="restart-btn" class="bg-blue-500 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-600">Volver a la lista de capítulos</button>
+            </div>
+        </div>
+        
+        <!-- Error Modal -->
+        <div id="error-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3 text-center">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                        <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    </div>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mt-2">Error</h3>
+                    <div class="mt-2 px-7 py-3">
+                        <p id="error-text" class="text-sm text-gray-500"></p>
+                    </div>
+                    <div class="items-center px-4 py-3">
+                        <button id="close-error-modal-btn" class="px-4 py-2 bg-red-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-300">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let apiKey = '';
+        let book;
+        let chapters = [];
+        let currentChapterText = '';
+        let currentChapterTitle = '';
+        let currentQuizQuestions = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let markmapInstance;
+
+        // DOM Elements
+        const apiKeyScreen = document.getElementById('api-key-screen');
+        const apiKeyInput = document.getElementById('api-key-input');
+        const saveApiKeyBtn = document.getElementById('save-api-key-btn');
+        
+        const fileUploadScreen = document.getElementById('file-upload-screen');
+        const epubFileInput = document.getElementById('epub-file-input');
+        
+        const loadingScreen = document.getElementById('loading-screen');
+        const loadingText = document.getElementById('loading-text');
+        
+        const bookHubScreen = document.getElementById('book-hub-screen');
+        const goToChaptersBtn = document.getElementById('go-to-chapters-btn');
+        const goToMindmapBtn = document.getElementById('go-to-mindmap-btn');
+
+        const chapterSelectionScreen = document.getElementById('chapter-selection-screen');
+        const chapterList = document.getElementById('chapter-list');
+        const backToBookHubFromListBtn = document.getElementById('back-to-book-hub-from-list-btn');
+
+        const mindmapScreen = document.getElementById('mindmap-screen');
+        const mindmapSvg = document.getElementById('markmap-svg');
+        const backToBookHubFromMapBtn = document.getElementById('back-to-book-hub-from-map-btn');
+
+        const chapterHubScreen = document.getElementById('chapter-hub-screen');
+        const hubChapterTitle = document.getElementById('hub-chapter-title');
+        const generateSummaryBtn = document.getElementById('generate-summary-btn');
+        const generateConceptsBtn = document.getElementById('generate-concepts-btn');
+        const aiContentDisplay = document.getElementById('ai-content-display');
+        const startQuizBtn = document.getElementById('start-quiz-btn');
+        const backToChaptersBtn = document.getElementById('back-to-chapters-btn');
+
+        const quizScreen = document.getElementById('quiz-screen');
+        const quizChapterTitle = document.getElementById('quiz-chapter-title');
+        const progressTextEl = document.getElementById('progress-text');
+        const questionTextEl = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const explanationEl = document.getElementById('explanation');
+        const explanationTextEl = document.getElementById('explanation-text');
+        const nextBtn = document.getElementById('next-btn');
+        const backToHubFromQuizBtn = document.getElementById('back-to-hub-from-quiz-btn');
+
+        const scoreScreen = document.getElementById('score-screen');
+        const scoreTextEl = document.getElementById('score-text');
+        const restartBtn = document.getElementById('restart-btn');
+        
+        const errorModal = document.getElementById('error-modal');
+        const errorText = document.getElementById('error-text');
+        const closeErrorModalBtn = document.getElementById('close-error-modal-btn');
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            apiKey = localStorage.getItem('geminiApiKey');
+            if (apiKey) {
+                showScreen('file-upload-screen');
+            } else {
+                showScreen('api-key-screen');
+            }
+        });
+
+        // --- Event Listeners ---
+        saveApiKeyBtn.addEventListener('click', () => {
+            const key = apiKeyInput.value.trim();
+            if (key) {
+                localStorage.setItem('geminiApiKey', key);
+                apiKey = key;
+                showScreen('file-upload-screen');
+            } else {
+                showError('Por favor, ingresa una clave de API válida.');
+            }
+        });
+
+        epubFileInput.addEventListener('change', handleFileSelect);
+
+        goToChaptersBtn.addEventListener('click', () => {
+            displayChapters();
+            showScreen('chapter-selection-screen');
+        });
+        goToMindmapBtn.addEventListener('click', generateAndDisplayMindMap);
+        
+        backToBookHubFromListBtn.addEventListener('click', () => showScreen('book-hub-screen'));
+        backToBookHubFromMapBtn.addEventListener('click', () => showScreen('book-hub-screen'));
+        backToChaptersBtn.addEventListener('click', () => showScreen('chapter-selection-screen'));
+        backToHubFromQuizBtn.addEventListener('click', () => showScreen('chapter-hub-screen'));
+        
+        generateSummaryBtn.addEventListener('click', handleGenerateSummary);
+        generateConceptsBtn.addEventListener('click', handleGenerateConcepts);
+        startQuizBtn.addEventListener('click', handleGenerateQuiz);
+
+        restartBtn.addEventListener('click', () => {
+             showScreen('chapter-selection-screen');
+        });
+        
+        closeErrorModalBtn.addEventListener('click', () => {
+            errorModal.classList.add('hidden');
+        });
+        
+        nextBtn.addEventListener('click', () => {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < currentQuizQuestions.length) {
+                loadQuizQuestion();
+            } else {
+                showScore();
+            }
+        });
+
+        // --- Core Functions ---
+        function showScreen(screenId) {
+            const screens = [apiKeyScreen, fileUploadScreen, loadingScreen, bookHubScreen, chapterSelectionScreen, mindmapScreen, chapterHubScreen, quizScreen, scoreScreen];
+            screens.forEach(screen => {
+                if (screen.id === screenId) {
+                    screen.classList.remove('hidden');
+                } else {
+                    screen.classList.add('hidden');
+                }
+            });
+        }
+        
+        function showError(message) {
+            errorText.textContent = message;
+            errorModal.classList.remove('hidden');
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file && file.name.endsWith('.epub')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    book = ePub(e.target.result);
+                    parseBook();
+                };
+                reader.readAsArrayBuffer(file);
+                loadingText.textContent = 'Analizando tu libro...';
+                showScreen('loading-screen');
+            } else {
+                showError('Por favor, selecciona un archivo con formato .epub');
+                epubFileInput.value = '';
+            }
+        }
+
+        async function parseBook() {
+            try {
+                await book.ready;
+                chapters = book.navigation.toc;
+                showScreen('book-hub-screen');
+            } catch (err) {
+                console.error("Error parsing book:", err);
+                showError('Hubo un problema al analizar el libro. Asegúrate de que el archivo .epub no esté dañado.');
+                showScreen('file-upload-screen');
+            }
+        }
+
+        function displayChapters() {
+            chapterList.innerHTML = '';
+            if (chapters.length === 0) {
+                 showError("No se pudo encontrar un índice de capítulos en este libro.");
+                 showScreen('book-hub-screen');
+                 return;
+            }
+            
+            chapters.forEach(chapter => {
+                const item = document.createElement('div');
+                item.textContent = chapter.label.trim();
+                item.className = 'p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50';
+                item.addEventListener('click', () => selectChapter(chapter));
+                chapterList.appendChild(item);
+            });
+        }
+
+        async function generateAndDisplayMindMap() {
+            loadingText.textContent = 'Generando mapa mental con IA...';
+            showScreen('loading-screen');
+
+            const tocForPrompt = chapters.map(c => `- ${c.label.trim()}`).join('\n');
+            const prompt = `Basado en el siguiente índice de un libro, crea una estructura jerárquica en formato Markdown para un mapa mental. Agrupa los capítulos relacionados bajo temas generales. El objetivo es crear una vista conceptual del libro, no una lista. Usa la sintaxis de Markdown con guiones o asteriscos para la jerarquía.\n\nÍNDICE:\n${tocForPrompt}`;
+
+            const markdownContent = await callGemini(prompt, false, true);
+
+            if (markdownContent) {
+                const cleanedMarkdown = markdownContent.replace(/```markdown/g, '').replace(/```/g, '').trim();
+                
+                try {
+                    const { markmap } = window;
+                    if (!markmap || !markmap.Transformer || !markmap.Markmap) {
+                        throw new Error("Las librerías del mapa mental no se cargaron correctamente.");
+                    }
+                    const { Transformer, Markmap } = markmap;
+                    const transformer = new Transformer();
+                    const { root } = transformer.transform(cleanedMarkdown);
+                    
+                    mindmapSvg.innerHTML = '';
+                    markmapInstance = Markmap.create(mindmapSvg, null, root);
+                    showScreen('mindmap-screen');
+                } catch (e) {
+                    console.error("Error creating mind map:", e);
+                    showError(`No se pudo crear el mapa mental: ${e.message}`);
+                    showScreen('book-hub-screen');
+                }
+            } else {
+                showScreen('book-hub-screen');
+            }
+        }
+
+        async function selectChapter(chapter) {
+            try {
+                loadingText.textContent = 'Cargando texto del capítulo...';
+                showScreen('loading-screen');
+                
+                const fullpath = book.path.resolve(chapter.href);
+                const htmlContent = await book.archive.getText(fullpath);
+
+                if (!htmlContent) {
+                    throw new Error("No se pudo extraer el contenido del capítulo desde el archivo.");
+                }
+
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlContent, "application/xhtml+xml");
+                currentChapterText = doc.body.textContent.trim();
+
+                const maxChars = 15000;
+                currentChapterText = currentChapterText.substring(0, maxChars);
+                currentChapterTitle = chapter.label.trim();
+
+                if (currentChapterText.length < 250) {
+                    showError('El contenido de este tema es muy corto. Por favor, elige otro.');
+                    showScreen('chapter-selection-screen');
+                    return;
+                }
+                
+                hubChapterTitle.textContent = currentChapterTitle;
+                aiContentDisplay.innerHTML = '<p class="text-gray-400 text-center mt-16">Selecciona una herramienta de IA para comenzar a estudiar este tema.</p>';
+                showScreen('chapter-hub-screen');
+
+            } catch (err) {
+                 console.error("Error loading chapter:", err);
+                 showError(`No se pudo cargar el contenido del capítulo: ${err.message}. Intenta con otro.`);
+                 showScreen('chapter-selection-screen');
+            }
+        }
+        
+        async function callGemini(prompt, isJson = false, isForMindmap = false) {
+            if (!isForMindmap) {
+                aiContentDisplay.innerHTML = '<div class="loader"></div>';
+            }
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }]
+            };
+            if (isJson) {
+                payload.generationConfig = { responseMimeType: "application/json" };
+            }
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error('API Error:', errorData);
+                    throw new Error(errorData.error?.message || 'Error en la respuesta de la API.');
+                }
+
+                const result = await response.json();
+                return result.candidates[0].content.parts[0].text;
+            } catch (error) {
+                console.error('Error fetching from Gemini API:', error);
+                showError(`Error al contactar la IA: ${error.message}. Verifica tu API Key y la conexión.`);
+                if (!isForMindmap) aiContentDisplay.innerHTML = '';
+                return null;
+            }
+        }
+
+        async function handleGenerateSummary() {
+            const prompt = `Genera un resumen conciso y claro, en español, del siguiente texto. El resumen debe capturar las ideas principales en 2-4 párrafos.\n\nTEXTO:\n---\n${currentChapterText}`;
+            const summary = await callGemini(prompt);
+            if (summary) {
+                aiContentDisplay.innerHTML = summary.replace(/\n/g, '<br>');
+            }
+        }
+        
+        async function handleGenerateConcepts() {
+            const prompt = `Extrae los 3 a 5 conceptos o ideas clave más importantes del siguiente texto. Para cada concepto, proporciona un título breve y una explicación de 1-2 frases. Formatea la respuesta en Markdown, usando asteriscos para los títulos. Responde en español.\n\nTEXTO:\n---\n${currentChapterText}`;
+            let concepts = await callGemini(prompt);
+            if (concepts) {
+                concepts = concepts
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
+                    .replace(/\n/g, '<br>');
+                aiContentDisplay.innerHTML = `<ul><li>${concepts.replace(/<br><br>/g, '</li><li>')}</li></ul>`;
+            }
+        }
+
+        async function handleGenerateQuiz() {
+            loadingText.textContent = 'Creando tu cuestionario con IA...';
+            showScreen('loading-screen');
+            const randomizer = Math.random(); // Add randomness
+            const prompt = `Basado en el siguiente texto, genera un cuestionario de 5 preguntas de opción múltiple en español. El objetivo es evaluar la comprensión. Asegúrate de que las preguntas sean variadas y no siempre las mismas si se solicita varias veces para el mismo texto. Las preguntas deben ser claras. Cada pregunta debe tener 4 opciones: una correcta y tres incorrectas pero plausibles. Proporciona una breve explicación para la respuesta correcta. Devuelve el resultado ÚNICAMENTE en formato JSON, como un array de objetos. No incluyas "backticks" ni la palabra "json". El formato de cada objeto debe ser: {"question": "...", "options": ["...", "...", "...", "..."], "correctAnswer": "...", "explanation": "..."}\n\nTEXTO:\n---\n${currentChapterText}\n\n(Semilla aleatoria para asegurar variedad: ${randomizer})`;
+            
+            const jsonString = await callGemini(prompt, true);
+            if(jsonString) {
+                try {
+                    currentQuizQuestions = JSON.parse(jsonString);
+                    if (!Array.isArray(currentQuizQuestions) || currentQuizQuestions.length === 0) {
+                         throw new Error("La IA no devolvió un cuestionario válido.");
+                    }
+                    startQuiz();
+                } catch(e) {
+                    console.error("Error parsing quiz JSON:", e);
+                    showError("La IA devolvió una respuesta inesperada. Por favor, inténtalo de nuevo.");
+                    showScreen('chapter-hub-screen');
+                }
+            } else {
+                 showScreen('chapter-hub-screen');
+            }
+        }
+        
+        function startQuiz() {
+            currentQuestionIndex = 0;
+            score = 0;
+            quizChapterTitle.textContent = currentChapterTitle;
+            showScreen('quiz-screen');
+            loadQuizQuestion();
+        }
+
+        function loadQuizQuestion() {
+            explanationEl.classList.add('hidden');
+            nextBtn.classList.add('hidden');
+            optionsContainer.innerHTML = '';
+
+            const question = currentQuizQuestions[currentQuestionIndex];
+            
+            progressTextEl.textContent = `Pregunta ${currentQuestionIndex + 1} de ${currentQuizQuestions.length}`;
+            questionTextEl.textContent = question.question;
+
+            const shuffledOptions = [...question.options].sort(() => Math.random() - 0.5);
+
+            shuffledOptions.forEach(option => {
+                const button = document.createElement('button');
+                button.textContent = option;
+                button.className = 'option-btn w-full p-4 mb-3 text-left border border-gray-300 rounded-lg bg-white';
+                button.addEventListener('click', () => selectAnswer(button, option, question.correctAnswer));
+                optionsContainer.appendChild(button);
+            });
+        }
+
+        function selectAnswer(button, selectedOption, correctAnswer) {
+            const optionButtons = optionsContainer.querySelectorAll('.option-btn');
+            optionButtons.forEach(btn => btn.disabled = true);
+
+            if (selectedOption === correctAnswer) {
+                button.classList.add('correct');
+                score++;
+            } else {
+                button.classList.add('incorrect');
+                optionButtons.forEach(btn => {
+                    if (btn.textContent === correctAnswer) {
+                        btn.classList.add('correct');
+                    }
+                });
+            }
+
+            explanationTextEl.textContent = currentQuizQuestions[currentQuestionIndex].explanation;
+            explanationEl.classList.remove('hidden');
+            nextBtn.classList.remove('hidden');
+        }
+
+        function showScore() {
+            showScreen('score-screen');
+            scoreTextEl.innerHTML = `Tu puntuación: <span class="font-bold text-green-600">${score}</span> de <span class="font-bold">${currentQuizQuestions.length}</span> correctas.`;
+        }
+
+    </script>
+</body>
+</html>

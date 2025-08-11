@@ -1,0 +1,7 @@
+# Ignore the DeepReadApp subdirectory (nested repo)
+DeepReadApp/
+# Node modules (if any)
+node_modules/
+# GitHub Pages artifacts
+.cache/
+gh-pages

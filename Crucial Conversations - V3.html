@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asistente Interactivo para Conversaciones Cruciales</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .step-container {
+            background-color: white;
+            border-radius: 1.5rem;
+            padding: 2rem 2.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            transition: opacity 0.5s ease-in-out;
+        }
+        .progress-bar-bg {
+            background-color: #e5e7eb;
+            border-radius: 9999px;
+        }
+        .progress-bar-fill {
+            background-color: #3b82f6;
+            border-radius: 9999px;
+            transition: width 0.5s ease-in-out;
+        }
+        .step-label {
+            transition: all 0.3s ease;
+        }
+        .step-label.active {
+            color: #3b82f6;
+            font-weight: 600;
+        }
+        .form-textarea, .form-input {
+            width: 100%;
+            margin-top: 0.5rem;
+            padding: 0.75rem;
+            border-radius: 0.75rem;
+            border: 1px solid #d1d5db;
+            transition: all 0.2s ease;
+            font-size: 1rem;
+            background-color: #f9fafb;
+        }
+        .form-textarea:focus, .form-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
+            background-color: white;
+        }
+        .nav-button {
+            padding: 0.75rem 2rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+        .accordion-button {
+            width: 100%;
+            text-align: left;
+            padding: 1rem;
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            color: #374151;
+            transition: background-color 0.2s ease;
+        }
+        .accordion-button:hover {
+            background-color: #f3f4f6;
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out, padding 0.5s ease-in-out;
+            padding: 0 1rem;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8 flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-3xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Asistente de Conversaciones Cruciales</h1>
+            <p class="text-gray-500 mt-2">Una guía paso a paso para dominar los diálogos que más importan.</p>
+        </header>
+
+        <!-- Progress Bar -->
+        <div id="progress-container" class="mb-8 hidden">
+            <div class="relative h-2 progress-bar-bg">
+                <div id="progress-bar" class="absolute h-2 progress-bar-fill" style="width: 0%;"></div>
+            </div>
+            <div class="flex justify-between mt-2 text-sm text-gray-400">
+                <span id="step-label-1" class="step-label">Preparación</span>
+                <span id="step-label-2" class="step-label">Conversación</span>
+                <span id="step-label-3" class="step-label">Acción</span>
+                <span id="step-label-4" class="step-label">Resumen</span>
+                <span id="step-label-5" class="step-label">Entrenamiento</span>
+            </div>
+        </div>
+
+        <!-- Steps Container -->
+        <main id="steps-wrapper">
+            <!-- Step API Key -->
+            <div id="step-api-key" class="step-container">
+                <h2 class="text-2xl font-bold text-gray-800">Configuración de la IA</h2>
+                <p class="text-gray-600 my-4">Para usar las funciones de redacción con IA, por favor ingresa tu clave de API de Google Gemini. Tu clave se usará únicamente en tu navegador y no será almacenada.</p>
+                <div>
+                    <label for="gemini-api-key" class="font-semibold text-gray-700">Tu API Key de Gemini</label>
+                    <input type="password" id="gemini-api-key" class="form-input" placeholder="Pega tu clave aquí...">
+                    <p id="api-key-error" class="text-red-500 text-sm mt-1 hidden">Por favor, ingresa una clave de API válida.</p>
+                </div>
+                <div class="mt-8 text-center">
+                    <button id="continue-btn" class="nav-button bg-blue-600 text-white hover:bg-blue-700">Continuar</button>
+                </div>
+            </div>
+
+            <!-- Step 0: Welcome -->
+            <div id="step-0" class="step-container text-center hidden">
+                <h2 class="text-2xl font-bold text-gray-800">Transforma tus conversaciones más difíciles</h2>
+                <p class="text-gray-600 my-4">Esta herramienta te guiará a través de los principios del libro "Conversaciones Cruciales" para ayudarte a prepararte y navegar esos diálogos de altas apuestas.</p>
+                <button id="start-btn" class="nav-button bg-blue-600 text-white hover:bg-blue-700">Comenzar Preparación</button>
+            </div>
+
+            <!-- Step 1: Preparación -->
+            <div id="step-1" class="step-container hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Paso 1: Empezar por el Corazón</h2>
+                <p class="text-gray-500 text-sm mb-6">El primer paso es interno. Antes de hablar, aclara tus verdaderas intenciones para no caer en el juego de ganar, castigar o simplemente evitar el conflicto.</p>
+                <div class="space-y-6">
+                    <div>
+                        <label for="prep-q1" class="font-semibold text-gray-700">¿Qué quiero realmente para mí?</label>
+                        <p class="text-sm text-gray-500">Piensa en tus metas a largo plazo, no solo en tener la razón ahora.</p>
+                        <textarea id="prep-q1" rows="2" class="form-textarea" placeholder="Ej: Quiero expresar mi punto de vista sin generar un conflicto..."></textarea>
+                    </div>
+                    <div>
+                        <label for="prep-q2" class="font-semibold text-gray-700">¿Qué quiero realmente para la otra persona?</label>
+                         <p class="text-sm text-gray-500">Considera sus intereses legítimos. ¿Cómo puede esta conversación beneficiarle?</p>
+                        <textarea id="prep-q2" rows="2" class="form-textarea" placeholder="Ej: Quiero que se sienta valorado y entienda mi perspectiva..."></textarea>
+                    </div>
+                    <div>
+                        <label for="prep-q3" class="font-semibold text-gray-700">¿Qué quiero realmente para nuestra relación?</label>
+                        <p class="text-sm text-gray-500">¿Cómo quieres que sea su relación después de esta conversación?</p>
+                        <textarea id="prep-q3" rows="2" class="form-textarea" placeholder="Ej: Quiero fortalecer la confianza y que podamos hablar de temas difíciles en el futuro..."></textarea>
+                    </div>
+                    <div class="mt-4 pt-4 border-t">
+                        <label for="prep-q4" class="font-semibold text-gray-700">Busca el "Y". ¿Cómo puedes ser 100% honesto Y 100% respetuoso?</label>
+                        <p class="text-sm text-gray-500">Rechaza la "elección del tonto" (elegir entre dos malos resultados). Formula una pregunta que te obligue a buscar una tercera opción más creativa.</p>
+                        <textarea id="prep-q4" rows="3" class="form-textarea" placeholder="Ej: Puedo hablar del problema de forma directa Y a la vez reafirmar mi respeto por su trabajo..."></textarea>
+                    </div>
+                </div>
+                <div class="mt-8 flex justify-end">
+                    <button data-next="2" class="nav-button bg-blue-600 text-white hover:bg-blue-700">Siguiente</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Conversación -->
+            <div id="step-2" class="step-container hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Paso 2: La Conversación</h2>
+                <div class="space-y-4">
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <h3 class="font-semibold text-gray-800">1. Observa tu estilo bajo estrés</h3>
+                        <p class="text-sm text-gray-500">Reconocer tu propia reacción es el primer paso para controlarla y mantener el diálogo productivo. ¿Cuál es tu tendencia cuando la conversación se pone difícil?</p>
+                        <select id="stressStyle" class="w-full mt-2 p-2 border border-gray-300 rounded-lg">
+                            <option value="">-- Elige tu tendencia --</option>
+                            <option value="silencio">Silencio (retener información)</option>
+                            <option value="violencia">Violencia (forzar mi opinión)</option>
+                        </select>
+                         <!-- Content for Silencio -->
+                        <div id="silencioContent" class="hidden mt-4 p-4 bg-blue-50 border-l-4 border-blue-400 rounded-r-lg text-left">
+                            <h4 class="font-bold text-blue-800">Abordando el Silencio</h4>
+                            <p class="text-blue-700 mt-2 text-sm">Si tu tendencia es el Silencio, tu reto es encontrar una forma segura de compartir tu perspectiva. Pregúntate: "¿Qué estoy evitando decir? ¿Qué temo que suceda si lo digo?". Usa la herramienta "Expresa tu Punto de Vista (PRPO(A))" de abajo para construir tu argumento de forma no amenazante.</p>
+                        </div>
+
+                        <!-- Content for Violencia -->
+                        <div id="violenciaContent" class="hidden mt-4 p-4 bg-red-50 border-l-4 border-red-400 rounded-r-lg text-left">
+                            <h4 class="font-bold text-red-800">Abordando la Violencia</h4>
+                            <p class="text-red-700 mt-2 text-sm">Si tu tendencia es la Violencia, detente y pregúntate: "¿Mi objetivo ha cambiado a ganar o castigar?". Vuelve a tus intenciones originales (Paso 1). Tu reto es bajar la intensidad y reabrir el diálogo, quizás pidiendo disculpas o usando contraste para restaurar la seguridad.</p>
+                        </div>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <h3 class="font-semibold text-gray-800">2. Gestiona el ambiente y a ti mismo</h3>
+                        <p class="text-sm text-gray-500">Cuando la seguridad está en riesgo, sal del contenido de la conversación y usa estas herramientas.</p>
+                        <div class="space-y-3 mt-3">
+                            <button class="accordion-button" data-target="accordion-diagnostico">Diagnosticar el Problema</button>
+                             <div id="accordion-diagnostico" class="accordion-content">
+                                 <div class="p-4 border-t">
+                                     <p class="text-sm">Elige qué condición de seguridad se ha perdido para ver las herramientas recomendadas.</p>
+                                     <div class="space-y-3 mt-3">
+                                         <button class="accordion-button" data-target="accordion-respeto">Se ha perdido el Respeto Mutuo</button>
+                                         <div id="accordion-respeto" class="accordion-content">
+                                             <div class="p-4 border-t">
+                                                 <h4 class="font-bold text-gray-800">Herramientas para restaurar el Respeto</h4>
+                                                 <p class="mt-2 text-sm">El respeto es como el aire: cuando se va, es lo único que importa.</p>
+                                                 <h5 class="font-semibold mt-3 mb-1 text-gray-700">Disculparse</h5>
+                                                 <p class="text-sm">Si has hecho algo para faltarle al respeto, una disculpa sincera es el mejor punto de partida.</p>
+                                                 <h5 class="font-semibold mt-3 mb-1 text-gray-700">Usar Contraste (No/Sí)</h5>
+                                                 <p class="text-sm">Úsalo para demostrar que valoras a la persona, aunque no estés de acuerdo.</p>
+                                                 <p class="mt-1 p-2 bg-white rounded-md border text-xs"><em>Ej: "<strong>No quiero</strong> que pienses que no valoro tu experiencia. Al contrario, <strong>es precisamente por tu experiencia</strong> que quiero entender por qué ves las cosas de esta manera."</em></p>
+                                             </div>
+                                         </div>
+                                         <button class="accordion-button" data-target="accordion-proposito">Se ha perdido el Propósito Mutuo</button>
+                                         <div id="accordion-proposito" class="accordion-content">
+                                             <div class="p-4 border-t">
+                                                 <h4 class="font-bold text-gray-800">Herramientas para restaurar el Propósito</h4>
+                                                 <p class="mt-2 text-sm">Cuando los demás creen que no te importan sus objetivos, usa estas herramientas:</p>
+                                                 <h5 class="font-semibold mt-3 mb-1 text-gray-700">Usar Contraste (No/Sí)</h5>
+                                                 <p class="text-sm">Úsalo para corregir malentendidos sobre tus intenciones.</p>
+                                                 <p class="mt-1 p-2 bg-white rounded-md border text-xs"><em>Ej: "<strong>No quiero</strong> que pienses que estoy tratando de imponer mi decisión. <strong>Sí quiero</strong> asegurarme de que consideremos todos los ángulos."</em></p>
+                                                 <h5 class="font-semibold mt-3 mb-1 text-gray-700">Crear un Propósito Mutuo (PRPO)</h5>
+                                                 <p class="text-sm">Cuando sus objetivos son diferentes, busca un propósito superior que ambos compartan.</p>
+                                                 <ol class="list-decimal list-inside mt-1 ml-4 text-xs">
+                                                     <li><strong>P</strong>arar y comprometerse a buscar un propósito mutuo.</li>
+                                                     <li><strong>R</strong>econocer el propósito detrás de la estrategia del otro ("¿Qué buscas lograr con eso?"). No tienes que estar de acuerdo, solo entender.</li>
+                                                     <li><strong>P</strong>resentar tu propio propósito.</li>
+                                                     <li><strong>O</strong>frecer nuevas estrategias. Busquen juntos una tercera opción que incorpore los intereses de ambos.</li>
+                                                 </ol>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 </div>
+                            </div>
+                            <button class="accordion-button" data-target="accordion-anime">Dominar mi Historia (Paso Interno)</button>
+                            <div id="accordion-anime" class="accordion-content">
+                                 <div class="p-4 border-t">
+                                     <h4 class="font-bold text-gray-800">Método ANIME</h4>
+                                     <p class="text-sm">Este es un paso <strong>interno</strong> para gestionar tus propias emociones. Para recuperar el control, deconstruye tu historia:</p>
+                                     <ol class="list-decimal list-inside mt-2 space-y-1 text-sm">
+                                         <li><strong>A</strong> - Analizar mi comportamiento.</li>
+                                         <li><strong>N</strong> - Notar mis sentimientos.</li>
+                                         <li><strong>I</strong> - Identificar mi historia (¿víctima, villano, impotente?).</li>
+                                         <li><strong>M</strong> - Meditar sobre los hechos objetivos.</li>
+                                         <li><strong>E</strong> - Escribir una historia útil que abra al diálogo.</li>
+                                     </ol>
+                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <h3 class="font-semibold text-gray-800">3. Expresa tu Punto de Vista (Método PRPO(A))</h3>
+                        <p class="text-sm text-gray-500">Usa esta estructura para compartir tu perspectiva de forma segura. Construye tu diálogo aquí:</p>
+                        <div class="space-y-4 mt-3">
+                            <div>
+                                <label for="prpoa-p" class="font-semibold text-gray-700 text-sm">P - Partir de los hechos</label>
+                                <textarea id="prpoa-p" rows="2" class="form-textarea text-sm" placeholder="Describe los hechos objetivos y observables..."></textarea>
+                            </div>
+                            <div>
+                                <label for="prpoa-r" class="font-semibold text-gray-700 text-sm">R - Relatar tu historia</label>
+                                <textarea id="prpoa-r" rows="2" class="form-textarea text-sm" placeholder="Explica la conclusión que sacas de esos hechos..."></textarea>
+                            </div>
+                             <div>
+                                <label for="prpoa-p2" class="font-semibold text-gray-700 text-sm">P - Preguntar por la perspectiva del otro</label>
+                                <textarea id="prpoa-p2" rows="2" class="form-textarea text-sm" placeholder="Invita a la otra persona a compartir su visión..."></textarea>
+                            </div>
+                            <div>
+                                <label for="prpoa-o" class="font-semibold text-gray-700 text-sm">O - Opinar con cautela y Animar a que pongan a prueba</label>
+                                <textarea id="prpoa-o" rows="2" class="form-textarea text-sm" placeholder="Usa un lenguaje tentativo y anima al desacuerdo..."></textarea>
+                            </div>
+                            <div class="text-center">
+                                <button id="gemini-prpoa-btn" class="nav-button bg-purple-600 text-white hover:bg-purple-700 text-base">
+                                    ✨ Redactar con IA
+                                </button>
+                                <div id="gemini-loader" class="hidden mx-auto mt-4 loader"></div>
+                                <p id="prpoa-error" class="text-red-500 text-sm mt-2 hidden"></p>
+                            </div>
+                            <div id="gemini-output-container" class="hidden">
+                                <label class="font-semibold text-gray-700 text-sm">Sugerencia de la IA:</label>
+                                <textarea id="gemini-output" rows="5" class="form-textarea text-sm bg-purple-50" readonly></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-8 flex justify-between">
+                    <button data-prev="1" class="nav-button bg-gray-200 text-gray-700 hover:bg-gray-300">Anterior</button>
+                    <button data-next="3" class="nav-button bg-blue-600 text-white hover:bg-blue-700">Siguiente</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Acción -->
+            <div id="step-3" class="step-container hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Paso 3: Pasar a la Acción</h2>
+                 <p class="text-gray-500 text-sm mb-6">Una conversación sin un plan de acción claro es solo una charla. Define cómo se tomarán las decisiones y quién es responsable de qué para asegurar que el diálogo se traduzca en resultados.</p>
+                <div class="space-y-6">
+                    <div>
+                        <label for="decision-method" class="font-semibold text-gray-700">¿Cómo se tomará la decisión final?</label>
+                        <p class="text-sm text-gray-500">Aclarar esto evita confusiones futuras.</p>
+                        <select id="decision-method" class="w-full mt-2 p-2 border border-gray-300 rounded-lg">
+                            <option value="No decidido">-- No decidido --</option>
+                            <option value="Mando">Mando (Una persona decide)</option>
+                            <option value="Consulta">Consulta (Se pide opinión, pero una persona decide)</option>
+                            <option value="Voto">Voto (El grupo decide por mayoría)</option>
+                            <option value="Consenso">Consenso (Todos deben estar de acuerdo)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="action-plan" class="font-semibold text-gray-700">Plan de Acción (Quién, Qué, Cuándo)</label>
+                         <p class="text-sm text-gray-500">Sé específico para evitar malentendidos.</p>
+                        <textarea id="action-plan" rows="4" class="form-textarea" placeholder="Ej: Juan (Quién) enviará el informe borrador (Qué) para el viernes a las 5pm (Cuándo)."></textarea>
+                    </div>
+                </div>
+                <div class="mt-8 flex justify-between">
+                    <button data-prev="2" class="nav-button bg-gray-200 text-gray-700 hover:bg-gray-300">Anterior</button>
+                    <button data-next="4" class="nav-button bg-blue-600 text-white hover:bg-blue-700">Generar Resumen</button>
+                </div>
+            </div>
+
+            <!-- Step 4: Resumen -->
+            <div id="step-4" class="step-container hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Paso 4: Tu Resumen de Preparación</h2>
+                <div id="summaryContent" class="prose max-w-none bg-gray-50 p-6 rounded-lg"></div>
+                <div class="mt-8 flex justify-between items-center">
+                    <button data-prev="3" class="nav-button bg-gray-200 text-gray-700 hover:bg-gray-300">Anterior</button>
+                    <div>
+                        <button id="copySummaryBtn" class="nav-button bg-gray-600 text-white hover:bg-gray-700 mr-2">Copiar Resumen</button>
+                        <button data-next="5" class="nav-button bg-blue-600 text-white hover:bg-blue-700">Ir a Entrenamiento</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 5: Entrenamiento -->
+            <div id="step-5" class="step-container hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Paso 5: Sistema de Entrenamiento</h2>
+                <p class="text-gray-500 text-sm mb-6">Usa esta checklist final para autoevaluar tu preparación y repasar las habilidades clave antes de tu conversación.</p>
+                <div class="space-y-3">
+                    <button class="accordion-button" data-target="train-1">1. Empezar por el Corazón</button>
+                    <div id="train-1" class="accordion-content"><div class="p-4 border-t"><p class="text-sm"><strong>Habilidad:</strong> Centrarse en lo que realmente quieres.</p><ul class="list-disc list-inside text-sm mt-2"><li>¿Qué me está diciendo mi comportamiento sobre mis motivos?</li><li>¿Estoy dispuesto a creer que mis motivos cambiarán a medida que aprenda más?</li></ul><textarea rows="2" class="form-textarea text-sm mt-2" placeholder="Mis notas..."></textarea></div></div>
+
+                    <button class="accordion-button" data-target="train-2">2. Aprender a Mirar</button>
+                    <div id="train-2" class="accordion-content"><div class="p-4 border-t"><p class="text-sm"><strong>Habilidad:</strong> Buscar señales de peligro (silencio o violencia).</p><ul class="list-disc list-inside text-sm mt-2"><li>¿Estoy prestando atención a lo que sucede en la conversación, tanto al contenido como a las condiciones?</li><li>¿Estoy buscando señales de que la seguridad está en riesgo?</li></ul><textarea rows="2" class="form-textarea text-sm mt-2" placeholder="Mis notas..."></textarea></div></div>
+
+                    <button class="accordion-button" data-target="train-3">3. Hacer que sea Seguro</button>
+                    <div id="train-3" class="accordion-content"><div class="p-4 border-t"><p class="text-sm"><strong>Habilidad:</strong> Disculparse, Contrastar, Crear un Propósito Mutuo (PRPO).</p><ul class="list-disc list-inside text-sm mt-2"><li>¿He hecho algo para que los demás se pongan a la defensiva?</li><li>¿Qué puedo hacer para crear un propósito mutuo y mostrar respeto?</li></ul><textarea rows="2" class="form-textarea text-sm mt-2" placeholder="Mis notas..."></textarea></div></div>
+
+                    <button class="accordion-button" data-target="train-4">4. Dominar mis Historias</button>
+                    <div id="train-4" class="accordion-content"><div class="p-4 border-t"><p class="text-sm"><strong>Habilidad:</strong> Evitar las historias de víctima, villano e impotente.</p><ul class="list-disc list-inside text-sm mt-2"><li>¿Qué historia estoy contando para justificar mis emociones y acciones?</li><li>¿Hay otra forma de ver esto? ¿Qué papel he jugado yo en el problema?</li></ul><textarea rows="2" class="form-textarea text-sm mt-2" placeholder="Mis notas..."></textarea></div></div>
+
+                    <button class="accordion-button" data-target="train-5">5. Expresar mi Punto de Vista</button>
+                    <div id="train-5" class="accordion-content"><div class="p-4 border-t"><p class="text-sm"><strong>Habilidad:</strong> Usar el método PRPO(A).</p><ul class="list-disc list-inside text-sm mt-2"><li>¿He compartido mis hechos y he contado mi historia con confianza y humildad?</li><li>¿He invitado a los demás a compartir su perspectiva?</li></ul><textarea rows="2" class="form-textarea text-sm mt-2" placeholder="Mis notas..."></textarea></div></div>
+
+                    <button class="accordion-button" data-target="train-6">6. Explorar los Caminos de los Demás</button>
+                    <div id="train-6" class="accordion-content"><div class="p-4 border-t"><p class="text-sm"><strong>Habilidad:</strong> Escuchar con curiosidad (AMPP: Preguntar, Reflejar, Parafrasear, Cebar).</p><ul class="list-disc list-inside text-sm mt-2"><li>¿Estoy realmente tratando de entender el punto de vista de la otra persona o solo espero mi turno para hablar?</li><li>¿Estoy usando mis habilidades de escucha para que se sientan seguros al compartir?</li></ul><textarea rows="2" class="form-textarea text-sm mt-2" placeholder="Mis notas..."></textarea></div></div>
+
+                    <button class="accordion-button" data-target="train-7">7. Moverse a la Acción</button>
+                    <div id="train-7" class="accordion-content"><div class="p-4 border-t"><p class="text-sm"><strong>Habilidad:</strong> Decidir cómo se decidirá y documentar los resultados.</p><ul class="list-disc list-inside text-sm mt-2"><li>¿Hemos aclarado cómo se tomarán las decisiones?</li><li>¿Hemos documentado quién hace qué y para cuándo?</li></ul><textarea rows="2" class="form-textarea text-sm mt-2" placeholder="Mis notas..."></textarea></div></div>
+                </div>
+                <div class="mt-8 flex justify-between items-center">
+                    <button data-prev="4" class="nav-button bg-gray-200 text-gray-700 hover:bg-gray-300">Anterior</button>
+                    <button id="finish-btn" class="nav-button bg-green-600 text-white hover:bg-green-700">Finalizar y Reiniciar</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const allStepContainers = document.querySelectorAll('.step-container');
+            const nextButtons = document.querySelectorAll('[data-next]');
+            const prevButtons = document.querySelectorAll('[data-prev]');
+            const startButton = document.getElementById('start-btn');
+            const finishButton = document.getElementById('finish-btn');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress-bar');
+            const stepLabels = document.querySelectorAll('.step-label');
+            const accordions = document.querySelectorAll('.accordion-button');
+            const stressStyleSelect = document.getElementById('stressStyle');
+            const silencioContent = document.getElementById('silencioContent');
+            const violenciaContent = document.getElementById('violenciaContent');
+            const apiKeyStep = document.getElementById('step-api-key');
+            const welcomeStep = document.getElementById('step-0');
+            const apiKeyInput = document.getElementById('gemini-api-key');
+            const continueBtn = document.getElementById('continue-btn');
+            const apiKeyError = document.getElementById('api-key-error');
+
+            let userApiKey = '';
+            let currentStep = 0;
+            const totalSteps = 5;
+
+            const updateProgress = () => {
+                const progress = ((currentStep - 1) / (totalSteps - 1)) * 100;
+                progressBar.style.width = `${progress}%`;
+                
+                stepLabels.forEach((label, index) => {
+                    label.classList.remove('active');
+                });
+
+                // Activate labels up to the current step
+                for (let i = 0; i < currentStep; i++) {
+                    if(stepLabels[i]) stepLabels[i].classList.add('active');
+                }
+            };
+
+            const showStep = (stepId) => {
+                allStepContainers.forEach(container => {
+                    container.classList.add('hidden');
+                });
+                
+                const targetStep = document.getElementById(stepId);
+                if (targetStep) {
+                    targetStep.classList.remove('hidden');
+                }
+
+                const stepNumber = parseInt(stepId.split('-')[1]);
+                if (!isNaN(stepNumber) && stepNumber >= 1 && stepNumber <= totalSteps) {
+                    progressContainer.classList.remove('hidden');
+                    currentStep = stepNumber;
+                    updateProgress();
+                } else {
+                    progressContainer.classList.add('hidden');
+                }
+            };
+
+            if (continueBtn) {
+                continueBtn.addEventListener('click', () => {
+                    const key = apiKeyInput.value.trim();
+                    if (key) {
+                        userApiKey = key;
+                        showStep('step-0');
+                        apiKeyError.classList.add('hidden');
+                    } else {
+                        apiKeyError.classList.remove('hidden');
+                    }
+                });
+            }
+
+            if(startButton) {
+                startButton.addEventListener('click', () => showStep('step-1'));
+            }
+            if(finishButton) {
+                finishButton.addEventListener('click', () => location.reload());
+            }
+
+            nextButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const nextStep = parseInt(button.dataset.next);
+                    if (nextStep === 4) generateSummary();
+                    showStep(`step-${nextStep}`);
+                });
+            });
+
+            prevButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const prevStep = parseInt(button.dataset.prev);
+                    showStep(`step-${prevStep}`);
+                });
+            });
+
+            // --- ACCORDION FIX START ---
+            accordions.forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetContent = document.getElementById(button.dataset.target);
+                    if (!targetContent) return;
+
+                    const isOpening = !targetContent.style.maxHeight;
+
+                    // This part closes other accordions at the same level.
+                    const container = button.parentElement;
+                    if (container) {
+                        const siblingButtons = Array.from(container.children).filter(el => el.classList.contains('accordion-button'));
+                        siblingButtons.forEach(btn => {
+                            if (btn !== button) {
+                                const content = document.getElementById(btn.dataset.target);
+                                if (content) {
+                                    content.style.maxHeight = null;
+                                    content.style.padding = '0 1rem';
+                                }
+                            }
+                        });
+                    }
+                    
+                    // This part toggles the clicked accordion.
+                    if (isOpening) {
+                        targetContent.style.maxHeight = targetContent.scrollHeight + "px";
+                        targetContent.style.padding = '1rem';
+                    } else {
+                        targetContent.style.maxHeight = null;
+                        targetContent.style.padding = '0 1rem';
+                    }
+
+                    // This is the fix: Adjust parent accordion's height if it's open
+                    const parentAccordionContent = button.closest('.accordion-content');
+                    if (parentAccordionContent && parentAccordionContent.style.maxHeight) {
+                        // Use a timeout to wait for the child animation to start and affect scrollHeight
+                        // This ensures the parent smoothly expands to fit the newly opened child content.
+                        setTimeout(() => {
+                           parentAccordionContent.style.maxHeight = parentAccordionContent.scrollHeight + "px";
+                        }, 300); 
+                    }
+                });
+            });
+            // --- ACCORDION FIX END ---
+            
+            stressStyleSelect.addEventListener('change', (event) => {
+                const selectedValue = event.target.value;
+                silencioContent.classList.add('hidden');
+                violenciaContent.classList.add('hidden');
+
+                if (selectedValue === 'silencio') {
+                    silencioContent.classList.remove('hidden');
+                } else if (selectedValue === 'violencia') {
+                    violenciaContent.classList.remove('hidden');
+                }
+            });
+
+            const generateSummary = () => {
+                const q1 = document.getElementById('prep-q1').value;
+                const q2 = document.getElementById('prep-q2').value;
+                const q3 = document.getElementById('prep-q3').value;
+                const q4 = document.getElementById('prep-q4').value;
+                const prpoaP = document.getElementById('prpoa-p').value;
+                const prpoaR = document.getElementById('prpoa-r').value;
+                const prpoaP2 = document.getElementById('prpoa-p2').value;
+                const prpoaO = document.getElementById('prpoa-o').value;
+                const geminiSuggestion = document.getElementById('gemini-output').value;
+                const decision = document.getElementById('decision-method').value;
+                const plan = document.getElementById('action-plan').value;
+
+                const summaryContentEl = document.getElementById('summaryContent');
+                summaryContentEl.innerHTML = `
+                    <h4 style="font-weight: 700; color: #1f2937;">Mis Objetivos (Empezar por el Corazón)</h4>
+                    <p><strong>Para mí:</strong> ${q1 || '<em>No especificado</em>'}</p>
+                    <p><strong>Para la otra persona:</strong> ${q2 || '<em>No especificado</em>'}</p>
+                    <p><strong>Para la relación:</strong> ${q3 || '<em>No especificado</em>'}</p>
+                    <h4 style="font-weight: 700; color: #1f2937; margin-top: 1rem;">Mi Enfoque (Buscar el "Y")</h4>
+                    <p>${q4 || '<em>No especificado</em>'}</p>
+                    <h4 style="font-weight: 700; color: #1f2937; margin-top: 1rem;">Mi Diálogo de Apertura (PRPO(A))</h4>
+                    <p><strong>P - Hechos:</strong> ${prpoaP || '<em>No especificado</em>'}</p>
+                    <p><strong>R - Mi historia:</strong> ${prpoaR || '<em>No especificado</em>'}</p>
+                    <p><strong>P - Pregunta:</strong> ${prpoaP2 || '<em>No especificado</em>'}</p>
+                    <p><strong>O/A - Opinión cautelosa:</strong> ${prpoaO || '<em>No especificado</em>'}</p>
+                    ${geminiSuggestion ? `<h5 style="font-weight: 600; color: #4b5563; margin-top: 1rem;">Sugerencia de la IA:</h5><p style="font-style: italic;">${geminiSuggestion}</p>` : ''}
+                    <h4 style="font-weight: 700; color: #1f2937; margin-top: 1rem;">Plan de Acción</h4>
+                    <p><strong>Método de decisión:</strong> ${decision}</p>
+                    <p><strong>Acciones:</strong> ${plan || '<em>No especificado</em>'}</p>
+                `;
+            };
+            
+            const copySummaryBtn = document.getElementById('copySummaryBtn');
+            if (copySummaryBtn) {
+                copySummaryBtn.addEventListener('click', () => {
+                    const q1 = document.getElementById('prep-q1').value;
+                    const q2 = document.getElementById('prep-q2').value;
+                    const q3 = document.getElementById('prep-q3').value;
+                    const q4 = document.getElementById('prep-q4').value;
+                    const prpoaP = document.getElementById('prpoa-p').value;
+                    const prpoaR = document.getElementById('prpoa-r').value;
+                    const prpoaP2 = document.getElementById('prpoa-p2').value;
+                    const prpoaO = document.getElementById('prpoa-o').value;
+                    const geminiSuggestion = document.getElementById('gemini-output').value;
+                    const decision = document.getElementById('decision-method').value;
+                    const plan = document.getElementById('action-plan').value;
+
+                    let geminiText = geminiSuggestion ? `\n**Sugerencia de la IA:**\n${geminiSuggestion}\n` : '';
+
+                    const textToCopy = `
+Resumen de Preparación para Conversación Crucial
+-------------------------------------------------
+
+**Mis Objetivos (Empezar por el Corazón):**
+- Para mí: ${q1 || 'No especificado'}
+- Para la otra persona: ${q2 || 'No especificado'}
+- Para la relación: ${q3 || 'No especificado'}
+
+**Mi Enfoque (Buscar el "Y"):**
+${q4 || 'No especificado'}
+
+**Mi Diálogo de Apertura (PRPO(A)):**
+- P (Hechos): ${prpoaP || 'No especificado'}
+- R (Mi historia): ${prpoaR || 'No especificado'}
+- P (Pregunta): ${prpoaP2 || 'No especificado'}
+- O/A (Opinión cautelosa): ${prpoaO || 'No especificado'}
+${geminiText}
+**Plan de Acción:**
+- Método de decisión: ${decision}
+- Acciones: ${plan || 'No especificado'}
+                    `.trim().replace(/^ +/gm, '');
+
+                    const textarea = document.createElement('textarea');
+                    textarea.value = textToCopy;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    try {
+                        document.execCommand('copy');
+                        copySummaryBtn.textContent = '¡Copiado!';
+                        copySummaryBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700', 'bg-red-600');
+                        copySummaryBtn.classList.add('bg-green-600');
+                        setTimeout(() => {
+                            copySummaryBtn.textContent = 'Copiar Resumen';
+                            copySummaryBtn.classList.remove('bg-green-600');
+                            copySummaryBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
+                        }, 2000);
+                    } catch (err) {
+                        console.error('Error al copiar texto: ', err);
+                        copySummaryBtn.textContent = 'Error al Copiar';
+                        copySummaryBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+                        copySummaryBtn.classList.add('bg-red-600');
+                    }
+                    document.body.removeChild(textarea);
+                });
+            }
+
+            // Gemini API call
+            const geminiBtn = document.getElementById('gemini-prpoa-btn');
+            const geminiLoader = document.getElementById('gemini-loader');
+            const geminiOutputContainer = document.getElementById('gemini-output-container');
+            const geminiOutput = document.getElementById('gemini-output');
+            const prpoaError = document.getElementById('prpoa-error');
+
+            geminiBtn.addEventListener('click', async () => {
+                prpoaError.classList.add('hidden'); // Reset error message
+
+                if (!userApiKey) {
+                    prpoaError.textContent = 'Por favor, regresa al inicio y proporciona una clave de API de Gemini.';
+                    prpoaError.classList.remove('hidden');
+                    return;
+                }
+                const prpoaP = document.getElementById('prpoa-p').value;
+                const prpoaR = document.getElementById('prpoa-r').value;
+                const prpoaP2 = document.getElementById('prpoa-p2').value;
+                const prpoaO = document.getElementById('prpoa-o').value;
+
+                if (!prpoaP && !prpoaR && !prpoaP2 && !prpoaO) {
+                    prpoaError.textContent = 'Por favor, completa al menos un campo de PRPO(A) para recibir una sugerencia.';
+                    prpoaError.classList.remove('hidden');
+                    return;
+                }
+
+                geminiLoader.classList.remove('hidden');
+                geminiBtn.disabled = true;
+
+                const prompt = `
+                Actúa como un experto en comunicación basándote en el libro 'Conversaciones Cruciales'. A continuación, te proporciono los componentes de un diálogo de apertura usando el método PRPO(A). Tu tarea es combinar estos puntos en un párrafo fluido, respetuoso y efectivo para iniciar una conversación difícil. El tono debe ser colaborativo y no acusatorio.
+
+                - Hechos (P): "${prpoaP}"
+                - Mi Historia (R): "${prpoaR}"
+                - Pregunta (P): "${prpoaP2}"
+                - Opinión Cautelosa (O/A): "${prpoaO}"
+
+                Redacta el párrafo de apertura:
+                `;
+
+                try {
+                    let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                    const payload = { contents: chatHistory };
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${userApiKey}`;
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorBody = await response.json();
+                        console.error("API Error:", errorBody);
+                        throw new Error(`API request failed with status ${response.status}. Check console for details.`);
+                    }
+
+                    const result = await response.json();
+                    
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        const text = result.candidates[0].content.parts[0].text;
+                        geminiOutput.value = text.trim();
+                        geminiOutputContainer.classList.remove('hidden');
+                    } else {
+                        console.error('Unexpected API response structure:', result);
+                        throw new Error('Respuesta inesperada de la API.');
+                    }
+
+                } catch (error) {
+                    console.error("Error calling Gemini API:", error);
+                    geminiOutput.value = "Hubo un error al generar la sugerencia. Verifica tu clave de API y la consola para más detalles.";
+                    geminiOutputContainer.classList.remove('hidden');
+                } finally {
+                    geminiLoader.classList.add('hidden');
+                    geminiBtn.disabled = false;
+                }
+            });
+
+            // Show the initial step
+            showStep('step-api-key');
+        });
+    </script>
+</body>
+</html>
