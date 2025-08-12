@@ -38,7 +38,7 @@ DeepRead AI es una aplicación web estática que convierte cualquier libro en fo
    git clone https://github.com/jlopezf8/Ebook-Assistant.git
    cd Ebook-Assistant
    ```
-2. Abre `index.html` en tu navegador preferido.
+2. Abre https://jlopezf8.github.io/Ebook-Assistant/ en tu navegador preferido.
 3. Ingresa tu API Key de Google AI Studio.
 4. Carga un archivo `.epub` y comienza a explorar.
 
